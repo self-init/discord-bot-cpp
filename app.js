@@ -3,40 +3,55 @@ require("dotenv").config();
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const Sequelize = require('sequelize');
+const RecursiveLoader = require('./recursiveLoader');
 
 const token = process.env.TOKEN;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 client.commands = new Collection();
-const foldersPath = path.join(__dirname, 'commands');
-const commandFolders = fs.readdirSync(foldersPath);
+RecursiveLoader.load(path.join(__dirname, 'commands'), (command) => {
+    client.commands.set(command.data.name, command);
+});
 
-for (const folder of commandFolders) {
-	const commandsPath = path.join(foldersPath, folder);
-	const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
-	for (const file of commandFiles) {
-		const filePath = path.join(commandsPath, file);
-		const command = require(filePath);
-		if ('data' in command && 'execute' in command) {
-			client.commands.set(command.data.name, command);
-		} else {
-			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
-		}
-	}
-}
+const sequelize = new Sequelize('database', 'user', 'password', {
+    host: 'localhost',
+    dialect: 'sqlite',
+    logging: false,
+    storage: 'database.sqlite'
+});
 
-const eventsPath = path.join(__dirname, 'events');
-const eventFiles = fs.readdirSync(eventsPath).filter((file) => file.endsWith('.js'));
+client.db = new Collection();
+RecursiveLoader.load(path.join(__dirname, 'tables'), (table) => {
+    client.db.set(table.name, {
+        table: sequelize.define(table.name, table.definition),
+        methods: table.methods
+    });
+});
 
-for (const file of eventFiles) {
-	const filePath = path.join(eventsPath, file);
-	const event = require(filePath);
-	if (event.once) {
-		client.once(event.name, (...args) => event.execute(...args));
-	} else {
-		client.on(event.name, (...args) => event.execute(...args));
-	}
-}
+RecursiveLoader.load(path.join(__dirname, 'events'), (event) => {
+    if (event.once) {
+        client.once(event.name, (...args) => event.execute(...args));
+    } else {
+        client.on(event.name, (...args) => event.execute(...args));
+    }
+})
 
 client.login(token);
+
+// const express = require("express");
+
+// const app = express();
+// const port = 3000;
+
+// app.get("/", async (req, res) => {
+//     const userList = await client.db.get("users").table.findAll({ attributes: ['name', 'message_count'] });
+//     const userString = userList.map(t => t.name + " " + String(t.message_count)).join('<br>') || 'No messages received.';
+
+//     res.send(userString);
+// });
+
+// app.listen(port, () => {
+//     console.log(`Server is running on http://localhost:${3000}`);
+// });
