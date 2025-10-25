@@ -1,21 +1,21 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-
-function load(folderPath, processor) {
+function call(folderPath)  {
+    let files = [];
     const folderContents = fs.readdirSync(folderPath);
     
     for (const obj of folderContents) {
         const objPath = path.join(folderPath, obj);
 
         if (fs.statSync(objPath).isDirectory()) {
-            load(objPath, processor);
+            files = files.concat(call(objPath));
         } else {
-            processor(require(objPath));
+            files.push(objPath);
         }
     }
+
+    return files;
 }
 
-module.exports = {
-    load: load
-};
+module.exports = call;

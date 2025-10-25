@@ -1,20 +1,26 @@
 require("dotenv").config();
 
-const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const Sequelize = require('sequelize');
-const RecursiveLoader = require('./recursiveLoader');
+const RecursiveFileCollector = require('./recursiveFileCollector');
 
 const token = process.env.TOKEN;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
-client.commands = new Collection();
-RecursiveLoader.load(path.join(__dirname, 'commands'), (command) => {
-    client.commands.set(command.data.name, command);
-});
+client.reloadCommands = () => {
+    client.commands = new Collection();
+    RecursiveFileCollector(path.join(__dirname, 'commands')).forEach(commandPath => {
+        delete require.cache[require.resolve(commandPath)];
+        command = require(commandPath);
+        client.commands.set(command.data.name, command);
+    });
+}
 
+client.reloadCommands();
+
+// Initialize database
 const sequelize = new Sequelize('database', 'user', 'password', {
     host: 'localhost',
     dialect: 'sqlite',
@@ -22,15 +28,19 @@ const sequelize = new Sequelize('database', 'user', 'password', {
     storage: 'database.sqlite'
 });
 
+// Load tables
 client.db = new Collection();
-RecursiveLoader.load(path.join(__dirname, 'tables'), (table) => {
+RecursiveFileCollector(path.join(__dirname, 'tables')).forEach(tablePath => {
+    const table = require(tablePath);
     client.db.set(table.name, {
         table: sequelize.define(table.name, table.definition),
         methods: table.methods
     });
 });
 
-RecursiveLoader.load(path.join(__dirname, 'events'), (event) => {
+// Load events
+RecursiveFileCollector(path.join(__dirname, 'events')).forEach(eventPath => {
+    const event = require(eventPath);
     if (event.once) {
         client.once(event.name, (...args) => event.execute(...args));
     } else {
@@ -39,6 +49,7 @@ RecursiveLoader.load(path.join(__dirname, 'events'), (event) => {
 })
 
 client.login(token);
+
 
 // const express = require("express");
 
