@@ -6,13 +6,11 @@ const path = require('path');
 module.exports = {
     data: new SlashCommandBuilder()
     .setName('scan')
-    .setDescription('Scans the current channel.')
-    .addIntegerOption((option) => option.setName('quantity').setDescription('amount of messages to scan')),
+    .setDescription('Scans the current channel.'),
 
     async execute(interaction) {
         const channelId = interaction.channelId;
         const guildId = interaction.guildId;
-        const messageQuantity = interaction.options.getInteger('quantity') ?? 500;
         let channel = interaction.client.channels.cache.get(channelId);
         
         let allMessages = [];
@@ -27,7 +25,7 @@ module.exports = {
             }
 
             const fetchedMessages = await channel.messages.fetch(options);
-            if (allMessages.length >= messageQuantity) break;
+            if (fetchedMessages.length === 0) break;
 
             allMessages = allMessages.concat(Array.from(fetchedMessages.values()));
             lastId = fetchedMessages.last().id;
