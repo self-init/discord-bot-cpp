@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { AttachmentBuilder } = require('discord.js');
 const fs = require('fs');
+const path = require('path');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,8 +11,10 @@ module.exports = {
 
     async execute(interaction) {
         const channelId = interaction.channelId;
+        const guildId = interaction.guildId;
         const messageQuantity = interaction.options.getInteger('quantity') ?? 500;
         let channel = interaction.client.channels.cache.get(channelId);
+        
         let allMessages = [];
         let lastId;
 
@@ -34,18 +37,25 @@ module.exports = {
         console.log("Scanned all messages");
 
 
-        // Create and save to json file
-        const jsonString = JSON.stringify(allMessages, null, 2)
 
-        fs.writeFile(__dirname + "/temp/output.json", jsonString, 'utf8', (err) => {
-            if (err) {
-                console.error('Error writing to file:', err);
-                return;
-            }
-            console.log('Data written to output.json')
-        })
+        // Check if directory exists
 
-        const file = new AttachmentBuilder(__dirname + "/temp/output.json");
+
+        const dirPath = path.join(__dirname, 'temp', 'data', guildId)
+        const filePath = path.join(dirPath, `${channelId}.json`)
+
+        try {
+            fs.mkdirSync(dirPath, { recursive: true});
+            const jsonString = JSON.stringify(allMessages, null, 2)
+            fs.writeFileSync(filePath, jsonString, 'utf8');
+
+
+        } catch (err) {
+            console.error('Error writing to file: ', err);
+        }
+        
+        // send attachment
+        const file = new AttachmentBuilder(filePath);
         await interaction.editReply({content: `Got ${allMessages.length} messages!`, files: [file] });
 
 

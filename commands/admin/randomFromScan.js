@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { AttachmentBuilder } = require('discord.js');
 const fs = require('fs').promises;
+const path = require('path');
 
 
 module.exports = {
